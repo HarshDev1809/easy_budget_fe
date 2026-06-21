@@ -79,9 +79,9 @@ export default function LoginPage() {
       })
       
       router.push("/dashboard")
-    } catch (error: any) {
+    } catch (error) {
       toast.error("Login failed", {
-        description: error.message || "Invalid email or password. Please try again.",
+        description: (error as Error).message || "Invalid email or password. Please try again.",
       })
     }
   }

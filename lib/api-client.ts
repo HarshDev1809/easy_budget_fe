@@ -23,7 +23,7 @@ export async function apiClient(
     try {
       const errorData = await response.json();
       errorMessage = errorData.message || errorData.error || errorMessage;
-    } catch (e) {
+    } catch {
       // Not JSON or empty body
     }
     throw new Error(errorMessage);
