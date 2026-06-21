@@ -23,9 +23,11 @@ export default function BooksPage() {
     }).format(new Date(dateString))
   }
 
-  const fetchBooks = React.useCallback(async () => {
+  const fetchBooks = React.useCallback(async (showLoading = false) => {
     try {
-      setLoading(true)
+      if (showLoading) {
+        setLoading(true)
+      }
       const response: ApiResponse<Book[]> = await apiClient("/api/v1/books")
       if (response.success) {
         setBooks(response.data)
@@ -40,6 +42,7 @@ export default function BooksPage() {
   }, [])
 
   React.useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchBooks()
   }, [fetchBooks])
 
@@ -54,13 +57,13 @@ export default function BooksPage() {
           <Button 
             variant="outline" 
             size="icon" 
-            onClick={fetchBooks} 
+            onClick={() => fetchBooks(true)} 
             disabled={loading}
             title="Refresh books"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
           </Button>
-          <CreateBookDialog onSuccess={fetchBooks} />
+          <CreateBookDialog onSuccess={() => fetchBooks(false)} />
         </div>
       </header>
 
@@ -72,7 +75,7 @@ export default function BooksPage() {
         <Card className="border-destructive/50 bg-destructive/5">
           <CardContent className="pt-6 text-center">
             <p className="text-destructive font-medium">{error}</p>
-            <Button variant="outline" className="mt-4" onClick={fetchBooks}>
+            <Button variant="outline" className="mt-4" onClick={() => fetchBooks(true)}>
               Try Again
             </Button>
           </CardContent>
@@ -121,13 +124,13 @@ export default function BooksPage() {
                <Button 
                 variant="outline" 
                 size="icon" 
-                onClick={fetchBooks} 
+                onClick={() => fetchBooks(true)} 
                 disabled={loading}
                 title="Refresh books"
               >
                 <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
               </Button>
-               <CreateBookDialog onSuccess={fetchBooks} />
+               <CreateBookDialog onSuccess={() => fetchBooks(false)} />
                <Button variant="outline">Import data</Button>
             </div>
           </div>

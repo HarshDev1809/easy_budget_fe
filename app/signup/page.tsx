@@ -92,9 +92,9 @@ export default function SignupPage() {
       })
       
       router.push("/dashboard")
-    } catch (error: any) {
+    } catch (error) {
       toast.error("Signup failed", {
-        description: error.message || "Something went wrong. Please try again.",
+        description: (error as Error).message || "Something went wrong. Please try again.",
       })
     }
   }

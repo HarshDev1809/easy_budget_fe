@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm, Resolver } from "react-hook-form"
 import * as z from "zod"
 import { toast } from "sonner"
-import { Plus } from "lucide-react"
+import { Pencil } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -21,6 +21,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Field, FieldLabel, FieldError } from "@/components/ui/field"
 import { apiClient } from "@/lib/api-client"
+import { Book } from "@/lib/types"
 
 const formSchema = z.object({
   name: z.string().min(1, "Book name is required"),
@@ -31,11 +32,12 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>
 
-interface CreateBookDialogProps {
+interface EditBookDialogProps {
+  book: Book
   onSuccess?: () => void
 }
 
-export function CreateBookDialog({ onSuccess }: CreateBookDialogProps) {
+export function EditBookDialog({ book, onSuccess }: EditBookDialogProps) {
   const router = useRouter()
   const [open, setOpen] = React.useState(false)
   const [isSubmitting, setIsSubmitting] = React.useState(false)
@@ -43,25 +45,34 @@ export function CreateBookDialog({ onSuccess }: CreateBookDialogProps) {
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema) as Resolver<FormValues>,
     defaultValues: {
-      name: "",
-      baseAmount: 0,
+      name: book.name,
+      baseAmount: book.baseAmount,
     },
   })
+
+  // Reset form values whenever dialog is opened or book updates
+  React.useEffect(() => {
+    if (open) {
+      form.reset({
+        name: book.name,
+        baseAmount: book.baseAmount,
+      })
+    }
+  }, [open, book, form])
 
   async function onSubmit(values: FormValues) {
     setIsSubmitting(true)
     try {
-      await apiClient("/api/v1/books", {
-        method: "POST",
+      await apiClient(`/api/v1/books/${book.id}`, {
+        method: "PATCH",
         body: JSON.stringify(values),
       })
-      toast.success("Book created successfully")
+      toast.success("Book updated successfully")
       setOpen(false)
-      form.reset()
       router.refresh()
       onSuccess?.()
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to create book")
+      toast.error(error instanceof Error ? error.message : "Failed to update book")
     } finally {
       setIsSubmitting(false)
     }
@@ -70,16 +81,16 @@ export function CreateBookDialog({ onSuccess }: CreateBookDialogProps) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          Create New Book
+        <Button variant="outline" size="sm">
+          <Pencil className="h-4 w-4 mr-2" />
+          Edit Details
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Create New Book</DialogTitle>
+          <DialogTitle>Edit Book Details</DialogTitle>
           <DialogDescription>
-            Add a new book to track your expenses and income.
+            Update your budget book configurations.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -115,7 +126,7 @@ export function CreateBookDialog({ onSuccess }: CreateBookDialogProps) {
               Cancel
             </Button>
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Creating..." : "Create Book"}
+              {isSubmitting ? "Saving..." : "Save Changes"}
             </Button>
           </DialogFooter>
         </form>
