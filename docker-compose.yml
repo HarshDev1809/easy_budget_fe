@@ -1,0 +1,17 @@
+services:
+  easy-budget-fe:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL
+    container_name: easy-budget-client
+    restart: always
+    env_file:
+      - /home/hosting/env/easy_budget_fe.env
+    networks:
+      - shared-network
+
+networks:
+  shared-network:
+    external: true

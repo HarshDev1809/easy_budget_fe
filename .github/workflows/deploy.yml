@@ -1,0 +1,30 @@
+name: CI/CD Deployment
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Deploy to Self-Hosted Runner
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Environment File
+        run: cp /home/hosting/env/easy_budget_fe.env .env
+
+      - name: Build and Run Container
+        run: |
+          # Rebuild and start container in detached mode
+          docker compose down
+          docker compose up -d --build
+
+      - name: Cleanup Runner Space
+        run: |
+          # Remove dangling images and build cache to prevent the self-hosted runner from running out of disk space
+          docker image prune -f
+          docker builder prune -f
