@@ -22,6 +22,8 @@ import { EditCategoryDialog } from "@/components/categories/edit-category-dialog
 import { EditBookDialog } from "@/components/books/edit-book-dialog"
 import { formatCategoryRenewCycle, formatCategoryNextReset } from "@/lib/utils"
 import { toast } from "sonner"
+import { TransactionList } from "@/components/transactions/transaction-list"
+
 
 export default function BookDetailPage() {
   const params = useParams()
@@ -41,7 +43,8 @@ export default function BookDetailPage() {
   const [categoryToDelete, setCategoryToDelete] = React.useState<Category | null>(null)
 
   const [receivedCode, setReceivedCode] = React.useState<string | null>(null)
-  const [activeTab, setActiveTab] = React.useState<"categories" | "danger">("categories")
+  const [activeTab, setActiveTab] = React.useState<"transactions" | "categories" | "danger">("transactions")
+
 
   const fetchBookDetails = React.useCallback(async (showLoading = false) => {
     try {
@@ -169,12 +172,21 @@ export default function BookDetailPage() {
               <CardTitle className="text-2xl font-bold flex items-center gap-2">
                 {book.name}
               </CardTitle>
-              <CardDescription className="text-base font-semibold text-foreground">
-                Base Amount: {new Intl.NumberFormat("en-IN", {
+              <CardDescription className="text-base font-semibold text-foreground flex flex-wrap gap-x-4">
+                <span>Base Amount: {new Intl.NumberFormat("en-IN", {
                   style: "currency",
                   currency: "INR",
-                }).format(book.baseAmount)}
+                }).format(book.baseAmount)}</span>
+                {book.balance !== undefined && (
+                  <span className="text-primary font-bold">
+                    Balance: {new Intl.NumberFormat("en-IN", {
+                      style: "currency",
+                      currency: "INR",
+                    }).format(typeof book.balance === 'string' ? parseFloat(book.balance) : book.balance)}
+                  </span>
+                )}
               </CardDescription>
+
             </div>
             <EditBookDialog book={book} onSuccess={fetchBookDetails} />
           </CardHeader>
@@ -182,6 +194,16 @@ export default function BookDetailPage() {
       )}
 
       <div className="flex border-b border-border my-2">
+        <button
+          onClick={() => setActiveTab("transactions")}
+          className={`flex-1 pb-3 text-center text-sm font-semibold border-b-2 transition-colors ${
+            activeTab === "transactions"
+              ? "border-primary text-primary"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Transactions
+        </button>
         <button
           onClick={() => setActiveTab("categories")}
           className={`flex-1 pb-3 text-center text-sm font-semibold border-b-2 transition-colors ${
@@ -204,7 +226,19 @@ export default function BookDetailPage() {
         </button>
       </div>
 
+      {activeTab === "transactions" && (
+        <TransactionList
+          bookId={bookId}
+          categories={categories}
+          onMutation={() => {
+            fetchBookDetails()
+            fetchCategories()
+          }}
+        />
+      )}
+
       {activeTab === "categories" && (
+
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <div className="space-y-1">
@@ -242,7 +276,13 @@ export default function BookDetailPage() {
                             </span>
                           )}
                         </div>
+                        {category.balance !== undefined && (
+                          <div className="font-bold text-primary text-xs mt-1">
+                            Balance: ₹{category.balance}
+                          </div>
+                        )}
                         <div className="text-muted-foreground space-y-0.5 pt-1">
+
                           <p>{formatCategoryRenewCycle(category)}</p>
                           {category.nextRenewAt && (
                             <p>{formatCategoryNextReset(category.nextRenewAt)}</p>
