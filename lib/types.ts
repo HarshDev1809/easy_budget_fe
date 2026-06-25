@@ -39,6 +39,8 @@ export interface Transaction {
   type: "credit" | "debit";  // credit = incoming, debit = outgoing
   bookId: string;            // Parent book UUID
   categoryId: string | null; // Nullable category ID (string representation)
+  categoryName: string | null; // Joined category name (returned from left-join)
+  paidAt: string;            // ISO-8601 date of transaction payment
   createdAt: string;         // ISO-8601 UTC timestamp string
   updatedAt: string;         // ISO-8601 UTC timestamp string
 }
@@ -49,7 +51,8 @@ export interface CreateTransactionPayload {
   type: "credit" | "debit";
   bookId: string;
   categoryId?: number | string | null;
-  createdAt?: string;
+  createdAt?: string; // Optional custom ISO-8601 datetime string
+  paidAt?: string;    // Optional custom ISO-8601 datetime string
 }
 
 export interface UpdateTransactionPayload {
@@ -58,7 +61,8 @@ export interface UpdateTransactionPayload {
   type?: "credit" | "debit";
   bookId?: string;
   categoryId?: number | string | null;
-  createdAt?: string;
+  createdAt?: string; // Optional custom ISO-8601 datetime string
+  paidAt?: string;    // Optional custom ISO-8601 datetime string
 }
 
 export interface ApiResponse<T> {

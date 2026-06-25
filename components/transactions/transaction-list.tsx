@@ -10,6 +10,8 @@ import {
   Loader2,
   AlertCircle,
   Tag,
+  RefreshCw,
+  ArrowUpDown,
 } from "lucide-react"
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -23,7 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { apiClient } from "@/lib/api-client"
-import { Transaction, Category, ApiResponse } from "@/lib/types"
+import { Transaction, Category, Book, ApiResponse } from "@/lib/types"
 import { CreateTransactionDialog } from "./create-transaction-dialog"
 import { EditTransactionDialog } from "./edit-transaction-dialog"
 import { DeleteTransactionDialog } from "./delete-transaction-dialog"
@@ -35,68 +37,181 @@ interface TransactionListProps {
 }
 
 export function TransactionList({
-  bookId,
-  categories,
+  bookId: initialBookId,
+  categories: initialCategories,
   onMutation,
 }: TransactionListProps) {
   const [transactions, setTransactions] = React.useState<Transaction[]>([])
+  const [nextCursor, setNextCursor] = React.useState<string | null>(null)
   const [loading, setLoading] = React.useState(true)
+  const [loadingMore, setLoadingMore] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
 
-  // Filters state
+  // Filter & Search values
+  const [selectedBookId, setSelectedBookId] = React.useState<string>(initialBookId)
   const [selectedCategoryId, setSelectedCategoryId] = React.useState<string>("all")
   const [selectedType, setSelectedType] = React.useState<"all" | "credit" | "debit">("all")
   const [searchQuery, setSearchQuery] = React.useState("")
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = React.useState("")
+
+  // Sort values
+  const [sortBy, setSortBy] = React.useState<"createdAt" | "paidAt" | "price" | "alphabet">("createdAt")
+  const [sortOrder, setSortOrder] = React.useState<"asc" | "desc">("desc")
+
+  // Book & Category dynamic data for filters
+  const [books, setBooks] = React.useState<Book[]>([])
+  const [filterCategories, setFilterCategories] = React.useState<Category[]>(initialCategories)
+  const [booksLoading, setBooksLoading] = React.useState(false)
+  const [categoriesLoading, setCategoriesLoading] = React.useState(false)
 
   // Deletion modal state
   const [transactionToDelete, setTransactionToDelete] = React.useState<Transaction | null>(null)
 
-  // Fetch transactions from API
-  const fetchTransactions = React.useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      let endpoint = `/api/v1/transactions?bookId=${bookId}`
-      if (selectedCategoryId && selectedCategoryId !== "all") {
-        // Handle categories
-        endpoint += `&categoryId=${selectedCategoryId === "none" ? "null" : selectedCategoryId}`
+  // Debounce search query
+  React.useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery)
+    }, 300)
+    return () => clearTimeout(handler)
+  }, [searchQuery])
+
+  // Fetch all books for Book filter
+  React.useEffect(() => {
+    async function fetchBooks() {
+      setBooksLoading(true)
+      try {
+        const response: ApiResponse<Book[]> = await apiClient("/api/v1/books")
+        if (response.success) {
+          setBooks(response.data)
+        }
+      } catch (err) {
+        console.error("Failed to fetch books for filter:", err)
+      } finally {
+        setBooksLoading(false)
       }
-      
-      const response: ApiResponse<Transaction[]> = await apiClient(endpoint)
+    }
+    fetchBooks()
+  }, [])
+
+  // Fetch categories dynamically when Book filter changes
+  const fetchCategoriesForFilter = React.useCallback(async (bId: string) => {
+    if (!bId || bId === "all") {
+      setFilterCategories([])
+      return
+    }
+    setCategoriesLoading(true)
+    try {
+      const response: ApiResponse<Category[]> = await apiClient(`/api/v1/categories/${bId}`)
       if (response.success) {
-        setTransactions(response.data)
-      } else {
-        setError(response.message || "Failed to fetch transactions")
+        setFilterCategories(response.data)
       }
     } catch (err) {
-      console.error("Error fetching transactions:", err)
-      setError(err instanceof Error ? err.message : "Failed to load transactions")
+      console.error("Failed to fetch categories for filter:", err)
     } finally {
-      setLoading(false)
+      setCategoriesLoading(false)
     }
-  }, [bookId, selectedCategoryId])
+  }, [])
 
   React.useEffect(() => {
+    if (selectedBookId === initialBookId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setFilterCategories(initialCategories)
+    } else {
+      fetchCategoriesForFilter(selectedBookId)
+    }
+  }, [selectedBookId, initialBookId, initialCategories, fetchCategoriesForFilter])
+
+  // Reset category filter if selected category does not exist in the new book's categories
+  React.useEffect(() => {
+    if (
+      selectedCategoryId !== "all" &&
+      selectedCategoryId !== "none" &&
+      filterCategories.length > 0 &&
+      !filterCategories.some((c) => String(c.id) === selectedCategoryId)
+    ) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSelectedCategoryId("all")
+    }
+  }, [filterCategories, selectedCategoryId])
+
+  // Paginated fetch logic
+  const fetchTransactions = React.useCallback(
+    async (cursorValue: string | null = null, isInitial: boolean = true) => {
+      if (isInitial) {
+        setLoading(true)
+      } else {
+        setLoadingMore(true)
+      }
+      setError(null)
+
+      try {
+        let endpoint = `/api/v1/transactions?limit=10`
+        
+        if (selectedBookId && selectedBookId !== "all") {
+          endpoint += `&bookId=${selectedBookId}`
+        }
+        if (selectedCategoryId && selectedCategoryId !== "all") {
+          endpoint += `&categoryId=${selectedCategoryId === "none" ? "null" : selectedCategoryId}`
+        }
+        if (selectedType && selectedType !== "all") {
+          endpoint += `&transactionType=${selectedType}`
+        }
+        if (debouncedSearchQuery) {
+          endpoint += `&search=${encodeURIComponent(debouncedSearchQuery)}`
+        }
+        if (sortBy) {
+          endpoint += `&sortBy=${sortBy}`
+        }
+        if (sortOrder) {
+          endpoint += `&sortOrder=${sortOrder}`
+        }
+        if (cursorValue) {
+          endpoint += `&cursor=${encodeURIComponent(cursorValue)}`
+        }
+
+        const response = await apiClient(endpoint)
+        if (response.success) {
+          setTransactions((prev) => (isInitial ? response.data : [...prev, ...response.data]))
+          setNextCursor(response.nextCursor || null)
+        } else {
+          setError(response.message || "Failed to fetch transactions")
+        }
+      } catch (err) {
+        console.error("Error fetching transactions:", err)
+        setError(err instanceof Error ? err.message : "Failed to load transactions")
+      } finally {
+        setLoading(false)
+        setLoadingMore(false)
+      }
+    },
+    [selectedBookId, selectedCategoryId, selectedType, debouncedSearchQuery, sortBy, sortOrder]
+  )
+
+  // Re-run initial fetch when search, sorting or filters change
+  React.useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchTransactions()
+    fetchTransactions(null, true)
   }, [fetchTransactions])
 
-  // Triggered when a transaction is Created, Updated, or Deleted
+  // Trigger refetch of page 1 and parent stats
   const handleMutation = () => {
-    fetchTransactions()
+    fetchTransactions(null, true)
     onMutation?.()
   }
 
-  // Filter transactions on client for search query and type filter
-  const filteredTransactions = React.useMemo(() => {
-    return transactions.filter((txn) => {
-      const matchesSearch = txn.name.toLowerCase().includes(searchQuery.toLowerCase())
-      const matchesType = selectedType === "all" || txn.type === selectedType
-      return matchesSearch && matchesType
-    })
-  }, [transactions, searchQuery, selectedType])
+  // Load next page
+  const handleLoadMore = () => {
+    if (nextCursor && !loadingMore) {
+      fetchTransactions(nextCursor, false)
+    }
+  }
 
-  // Format dates
+  // Toggle Sorting Order
+  const toggleSortOrder = () => {
+    setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"))
+  }
+
+  // Date formatter
   const formatTxnDate = (dateStr: string) => {
     try {
       return new Intl.DateTimeFormat("en-IN", {
@@ -112,7 +227,7 @@ export function TransactionList({
     }
   }
 
-  // Format currency
+  // Currency formatter
   const formatAmount = (amountStr: string) => {
     const amountVal = parseFloat(amountStr) || 0
     return new Intl.NumberFormat("en-IN", {
@@ -121,41 +236,70 @@ export function TransactionList({
     }).format(amountVal)
   }
 
-  // Helper to find category name by categoryId
-  const getCategoryName = (catId: string | null) => {
-    if (!catId) return null
-    const found = categories.find((c) => c.id === catId || c.id === String(catId))
-    return found ? found.name : "Category"
-  }
-
   return (
     <div className="space-y-4">
-      {/* Search and Filters Controls */}
+      {/* Search, Filter & Sort Controls */}
       <Card>
-        <CardContent className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex-1 flex flex-col sm:flex-row gap-3">
-            {/* Search Input */}
+        <CardContent className="p-4 space-y-4">
+          {/* Top Row: Search and Action Buttons */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search transactions..."
+                placeholder="Search by name, category or amount..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9 w-full"
               />
             </div>
+            <div className="flex items-center gap-2 justify-end">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleMutation}
+                disabled={loading}
+                title="Refresh ledger"
+              >
+                <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+              </Button>
+              <CreateTransactionDialog currentBookId={initialBookId} onSuccess={handleMutation} />
+            </div>
+          </div>
+
+          {/* Bottom Row: Filters and Sort options */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
+            {/* Book Filter */}
+            <div>
+              <Select value={selectedBookId} onValueChange={setSelectedBookId} disabled={booksLoading}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="All Books" />
+                </SelectTrigger>
+                <SelectContent position="popper">
+                  <SelectItem value="all">All Books</SelectItem>
+                  {books.map((b) => (
+                    <SelectItem key={b.id} value={b.id}>
+                      {b.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
             {/* Category Filter */}
-            <div className="w-full sm:w-[200px]">
-              <Select value={selectedCategoryId} onValueChange={setSelectedCategoryId}>
+            <div>
+              <Select
+                value={selectedCategoryId}
+                onValueChange={setSelectedCategoryId}
+                disabled={categoriesLoading}
+              >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Category Filter" />
+                  <SelectValue placeholder="All Categories" />
                 </SelectTrigger>
                 <SelectContent position="popper">
                   <SelectItem value="all">All Categories</SelectItem>
                   <SelectItem value="none">No Category (General)</SelectItem>
-                  {categories.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
+                  {filterCategories.map((c) => (
+                    <SelectItem key={c.id} value={String(c.id)}>
                       {c.name}
                     </SelectItem>
                   ))}
@@ -164,7 +308,7 @@ export function TransactionList({
             </div>
 
             {/* Type Filter */}
-            <div className="w-full sm:w-[150px]">
+            <div>
               <Select
                 value={selectedType}
                 onValueChange={(val) => setSelectedType(val as "all" | "credit" | "debit")}
@@ -179,25 +323,53 @@ export function TransactionList({
                 </SelectContent>
               </Select>
             </div>
-          </div>
 
-          <div className="flex items-center justify-end">
-            <CreateTransactionDialog currentBookId={bookId} onSuccess={handleMutation} />
+            {/* Sort Field Select */}
+            <div>
+              <Select
+                value={sortBy}
+                onValueChange={(val) =>
+                  setSortBy(val as "createdAt" | "paidAt" | "price" | "alphabet")
+                }
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Sort By" />
+                </SelectTrigger>
+                <SelectContent position="popper">
+                  <SelectItem value="createdAt">Date Created</SelectItem>
+                  <SelectItem value="paidAt">Date Paid</SelectItem>
+                  <SelectItem value="price">Amount</SelectItem>
+                  <SelectItem value="alphabet">Alphabetical</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Sort Order Direction Toggle */}
+            <div className="flex">
+              <Button
+                variant="outline"
+                onClick={toggleSortOrder}
+                className="w-full flex items-center justify-between px-3"
+                title={`Sort order: ${sortOrder === "asc" ? "Ascending" : "Descending"}`}
+              >
+                <span className="text-sm font-normal">
+                  {sortOrder === "asc" ? "Ascending" : "Descending"}
+                </span>
+                <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Transactions Ledger */}
+      {/* Transaction Ledger Table */}
       <Card>
         <CardHeader className="pb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <div>
             <CardTitle>Transaction Ledger</CardTitle>
             <CardDescription>
-              A record of income and expenses associated with this book.
+              A record of income and expenses associated with your books.
             </CardDescription>
-          </div>
-          <div className="text-xs text-muted-foreground font-medium">
-            Showing {filteredTransactions.length} of {transactions.length} transactions
           </div>
         </CardHeader>
         <CardContent className="px-0 sm:px-6">
@@ -210,32 +382,29 @@ export function TransactionList({
               <AlertCircle className="h-10 w-10 text-destructive/80" />
               <h3 className="font-semibold text-lg">Error Loading Transactions</h3>
               <p className="text-sm text-muted-foreground max-w-md">{error}</p>
-              <Button variant="outline" className="mt-2" onClick={fetchTransactions}>
+              <Button variant="outline" className="mt-2" onClick={() => fetchTransactions(null, true)}>
                 Retry
               </Button>
             </div>
-          ) : filteredTransactions.length === 0 ? (
+          ) : transactions.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 px-4 text-center border-t border-dashed">
               <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-3">
                 <Search className="h-6 w-6 text-muted-foreground" />
               </div>
               <h3 className="font-medium text-base text-foreground">No transactions found</h3>
               <p className="text-sm text-muted-foreground max-w-sm mt-1">
-                {transactions.length === 0
-                  ? "There are no transactions recorded in this book yet."
-                  : "No transactions match your current filters and search query."}
+                There are no transaction records matching your current criteria.
               </p>
-              {transactions.length === 0 && (
-                <div className="mt-4">
-                  <CreateTransactionDialog currentBookId={bookId} onSuccess={handleMutation} />
-                </div>
-              )}
             </div>
           ) : (
             <div className="divide-y divide-border border-t">
-              {filteredTransactions.map((txn) => {
-                const catName = getCategoryName(txn.categoryId)
+              {transactions.map((txn) => {
                 const isCredit = txn.type === "credit"
+                // Prefer API returned categoryName, fallback to looking it up locally
+                const catName = txn.categoryName || (
+                  txn.categoryId ? filterCategories.find(c => String(c.id) === String(txn.categoryId))?.name : null
+                )
+                
                 return (
                   <div
                     key={txn.id}
@@ -257,20 +426,20 @@ export function TransactionList({
                         )}
                       </div>
 
-                      {/* Transaction details */}
+                      {/* Transaction Details */}
                       <div className="min-w-0">
                         <p className="text-sm font-semibold text-foreground truncate max-w-[200px] sm:max-w-md">
                           {txn.name}
                         </p>
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground mt-0.5">
-                          <span className="flex items-center gap-1">
+                          <span className="flex items-center gap-1" title={`Created at: ${formatTxnDate(txn.createdAt)}`}>
                             <Calendar className="h-3 w-3" />
-                            {formatTxnDate(txn.createdAt)}
+                            Paid: {formatTxnDate(txn.paidAt)}
                           </span>
                           {catName && (
                             <>
                               <span className="hidden sm:inline">•</span>
-                              <span className="inline-flex items-center gap-1 bg-primary/10 text-primary px-1.5 py-0.5 rounded text-[10px] font-medium font-semibold uppercase tracking-wider">
+                              <span className="inline-flex items-center gap-1 bg-primary/10 text-primary px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider">
                                 <Tag className="h-2.5 w-2.5" />
                                 {catName}
                               </span>
@@ -297,7 +466,7 @@ export function TransactionList({
                         </p>
                       </div>
 
-                      {/* Edit / Delete actions */}
+                      {/* Actions (Edit / Delete) */}
                       <div className="flex items-center gap-1">
                         <EditTransactionDialog transaction={txn} onSuccess={handleMutation} />
                         <Button
@@ -316,10 +485,26 @@ export function TransactionList({
               })}
             </div>
           )}
+
+          {/* Load More Button */}
+          {nextCursor && !loading && (
+            <div className="flex justify-center py-4 border-t">
+              <Button onClick={handleLoadMore} disabled={loadingMore} variant="outline" size="sm">
+                {loadingMore ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Loading More...
+                  </>
+                ) : (
+                  "Load More"
+                )}
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* 2-Phase Deletion Flow confirmation dialog */}
+      {/* 2-Phase Deletion Dialog */}
       {transactionToDelete && (
         <DeleteTransactionDialog
           transaction={transactionToDelete}

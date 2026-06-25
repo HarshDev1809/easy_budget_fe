@@ -49,7 +49,8 @@ const formSchema = z.object({
   type: z.enum(["credit", "debit"]),
   bookId: z.string().min(1, "Book is required"),
   categoryId: z.union([z.string(), z.number()]).nullable().optional(),
-  createdAt: z.string().min(1, "Date and time are required"),
+  createdAt: z.string().optional().or(z.literal("")),
+  paidAt: z.string().optional().or(z.literal("")),
 })
 
 type FormValues = z.infer<typeof formSchema>
@@ -79,6 +80,7 @@ export function EditTransactionDialog({
       bookId: transaction.bookId,
       categoryId: transaction.categoryId,
       createdAt: formatToLocalDatetime(new Date(transaction.createdAt)),
+      paidAt: transaction.paidAt ? formatToLocalDatetime(new Date(transaction.paidAt)) : formatToLocalDatetime(new Date()),
     },
   })
 
@@ -146,6 +148,7 @@ export function EditTransactionDialog({
         bookId: transaction.bookId,
         categoryId: transaction.categoryId,
         createdAt: formatToLocalDatetime(new Date(transaction.createdAt)),
+        paidAt: transaction.paidAt ? formatToLocalDatetime(new Date(transaction.paidAt)) : formatToLocalDatetime(new Date()),
       })
     }
   }, [open, transaction, form])
@@ -159,7 +162,8 @@ export function EditTransactionDialog({
         type: values.type,
         bookId: values.bookId,
         categoryId: values.categoryId === "none" || !values.categoryId ? null : values.categoryId,
-        createdAt: new Date(values.createdAt).toISOString(),
+        createdAt: values.createdAt ? new Date(values.createdAt).toISOString() : new Date().toISOString(),
+        paidAt: values.paidAt ? new Date(values.paidAt).toISOString() : new Date().toISOString(),
       }
 
       await apiClient(`/api/v1/transactions/${transaction.id}`, {
@@ -243,16 +247,29 @@ export function EditTransactionDialog({
             </Field>
           </div>
 
-          <Field>
-            <FieldLabel htmlFor="createdAt">Date & Time</FieldLabel>
-            <Input
-              id="createdAt"
-              type="datetime-local"
-              {...form.register("createdAt")}
-              aria-invalid={!!form.formState.errors.createdAt}
-            />
-            <FieldError errors={[form.formState.errors.createdAt]} />
-          </Field>
+          <div className="grid grid-cols-2 gap-4">
+            <Field>
+              <FieldLabel htmlFor="paidAt">Date Paid (Paid At)</FieldLabel>
+              <Input
+                id="paidAt"
+                type="datetime-local"
+                {...form.register("paidAt")}
+                aria-invalid={!!form.formState.errors.paidAt}
+              />
+              <FieldError errors={[form.formState.errors.paidAt]} />
+            </Field>
+
+            <Field>
+              <FieldLabel htmlFor="createdAt">Date Created (Created At)</FieldLabel>
+              <Input
+                id="createdAt"
+                type="datetime-local"
+                {...form.register("createdAt")}
+                aria-invalid={!!form.formState.errors.createdAt}
+              />
+              <FieldError errors={[form.formState.errors.createdAt]} />
+            </Field>
+          </div>
 
           <Field>
             <FieldLabel htmlFor="bookId">Parent Book</FieldLabel>
