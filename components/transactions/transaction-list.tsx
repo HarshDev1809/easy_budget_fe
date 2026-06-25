@@ -25,7 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { apiClient } from "@/lib/api-client"
-import { Transaction, Category, Book, ApiResponse } from "@/lib/types"
+import { Transaction, Category } from "@/lib/types"
 import { CreateTransactionDialog } from "./create-transaction-dialog"
 import { EditTransactionDialog } from "./edit-transaction-dialog"
 import { DeleteTransactionDialog } from "./delete-transaction-dialog"
@@ -37,8 +37,8 @@ interface TransactionListProps {
 }
 
 export function TransactionList({
-  bookId: initialBookId,
-  categories: initialCategories,
+  bookId,
+  categories,
   onMutation,
 }: TransactionListProps) {
   const [transactions, setTransactions] = React.useState<Transaction[]>([])
@@ -48,7 +48,6 @@ export function TransactionList({
   const [error, setError] = React.useState<string | null>(null)
 
   // Filter & Search values
-  const [selectedBookId, setSelectedBookId] = React.useState<string>(initialBookId)
   const [selectedCategoryId, setSelectedCategoryId] = React.useState<string>("all")
   const [selectedType, setSelectedType] = React.useState<"all" | "credit" | "debit">("all")
   const [searchQuery, setSearchQuery] = React.useState("")
@@ -57,12 +56,6 @@ export function TransactionList({
   // Sort values
   const [sortBy, setSortBy] = React.useState<"createdAt" | "paidAt" | "price" | "alphabet">("createdAt")
   const [sortOrder, setSortOrder] = React.useState<"asc" | "desc">("desc")
-
-  // Book & Category dynamic data for filters
-  const [books, setBooks] = React.useState<Book[]>([])
-  const [filterCategories, setFilterCategories] = React.useState<Category[]>(initialCategories)
-  const [booksLoading, setBooksLoading] = React.useState(false)
-  const [categoriesLoading, setCategoriesLoading] = React.useState(false)
 
   // Deletion modal state
   const [transactionToDelete, setTransactionToDelete] = React.useState<Transaction | null>(null)
@@ -75,64 +68,18 @@ export function TransactionList({
     return () => clearTimeout(handler)
   }, [searchQuery])
 
-  // Fetch all books for Book filter
-  React.useEffect(() => {
-    async function fetchBooks() {
-      setBooksLoading(true)
-      try {
-        const response: ApiResponse<Book[]> = await apiClient("/api/v1/books")
-        if (response.success) {
-          setBooks(response.data)
-        }
-      } catch (err) {
-        console.error("Failed to fetch books for filter:", err)
-      } finally {
-        setBooksLoading(false)
-      }
-    }
-    fetchBooks()
-  }, [])
-
-  // Fetch categories dynamically when Book filter changes
-  const fetchCategoriesForFilter = React.useCallback(async (bId: string) => {
-    if (!bId || bId === "all") {
-      setFilterCategories([])
-      return
-    }
-    setCategoriesLoading(true)
-    try {
-      const response: ApiResponse<Category[]> = await apiClient(`/api/v1/categories/${bId}`)
-      if (response.success) {
-        setFilterCategories(response.data)
-      }
-    } catch (err) {
-      console.error("Failed to fetch categories for filter:", err)
-    } finally {
-      setCategoriesLoading(false)
-    }
-  }, [])
-
-  React.useEffect(() => {
-    if (selectedBookId === initialBookId) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setFilterCategories(initialCategories)
-    } else {
-      fetchCategoriesForFilter(selectedBookId)
-    }
-  }, [selectedBookId, initialBookId, initialCategories, fetchCategoriesForFilter])
-
-  // Reset category filter if selected category does not exist in the new book's categories
+  // Reset category filter if selected category does not exist in the book's categories anymore
   React.useEffect(() => {
     if (
       selectedCategoryId !== "all" &&
       selectedCategoryId !== "none" &&
-      filterCategories.length > 0 &&
-      !filterCategories.some((c) => String(c.id) === selectedCategoryId)
+      categories.length > 0 &&
+      !categories.some((c) => String(c.id) === selectedCategoryId)
     ) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedCategoryId("all")
     }
-  }, [filterCategories, selectedCategoryId])
+  }, [categories, selectedCategoryId])
 
   // Paginated fetch logic
   const fetchTransactions = React.useCallback(
@@ -145,11 +92,8 @@ export function TransactionList({
       setError(null)
 
       try {
-        let endpoint = `/api/v1/transactions?limit=10`
+        let endpoint = `/api/v1/transactions?limit=10&bookId=${bookId}`
         
-        if (selectedBookId && selectedBookId !== "all") {
-          endpoint += `&bookId=${selectedBookId}`
-        }
         if (selectedCategoryId && selectedCategoryId !== "all") {
           endpoint += `&categoryId=${selectedCategoryId === "none" ? "null" : selectedCategoryId}`
         }
@@ -184,7 +128,7 @@ export function TransactionList({
         setLoadingMore(false)
       }
     },
-    [selectedBookId, selectedCategoryId, selectedType, debouncedSearchQuery, sortBy, sortOrder]
+    [bookId, selectedCategoryId, selectedType, debouncedSearchQuery, sortBy, sortOrder]
   )
 
   // Re-run initial fetch when search, sorting or filters change
@@ -262,35 +206,17 @@ export function TransactionList({
               >
                 <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
               </Button>
-              <CreateTransactionDialog currentBookId={initialBookId} onSuccess={handleMutation} />
+              <CreateTransactionDialog currentBookId={bookId} onSuccess={handleMutation} />
             </div>
           </div>
 
           {/* Bottom Row: Filters and Sort options */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
-            {/* Book Filter */}
-            <div>
-              <Select value={selectedBookId} onValueChange={setSelectedBookId} disabled={booksLoading}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="All Books" />
-                </SelectTrigger>
-                <SelectContent position="popper">
-                  <SelectItem value="all">All Books</SelectItem>
-                  {books.map((b) => (
-                    <SelectItem key={b.id} value={b.id}>
-                      {b.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
             {/* Category Filter */}
             <div>
               <Select
                 value={selectedCategoryId}
                 onValueChange={setSelectedCategoryId}
-                disabled={categoriesLoading}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="All Categories" />
@@ -298,7 +224,7 @@ export function TransactionList({
                 <SelectContent position="popper">
                   <SelectItem value="all">All Categories</SelectItem>
                   <SelectItem value="none">No Category (General)</SelectItem>
-                  {filterCategories.map((c) => (
+                  {categories.map((c) => (
                     <SelectItem key={c.id} value={String(c.id)}>
                       {c.name}
                     </SelectItem>
@@ -368,7 +294,7 @@ export function TransactionList({
           <div>
             <CardTitle>Transaction Ledger</CardTitle>
             <CardDescription>
-              A record of income and expenses associated with your books.
+              A record of income and expenses associated with your book.
             </CardDescription>
           </div>
         </CardHeader>
@@ -402,7 +328,7 @@ export function TransactionList({
                 const isCredit = txn.type === "credit"
                 // Prefer API returned categoryName, fallback to looking it up locally
                 const catName = txn.categoryName || (
-                  txn.categoryId ? filterCategories.find(c => String(c.id) === String(txn.categoryId))?.name : null
+                  txn.categoryId ? categories.find(c => String(c.id) === String(txn.categoryId))?.name : null
                 )
                 
                 return (
@@ -468,7 +394,7 @@ export function TransactionList({
 
                       {/* Actions (Edit / Delete) */}
                       <div className="flex items-center gap-1">
-                        <EditTransactionDialog transaction={txn} onSuccess={handleMutation} />
+                        <EditTransactionDialog transaction={txn} currentBookId={bookId} onSuccess={handleMutation} />
                         <Button
                           variant="ghost"
                           size="icon"

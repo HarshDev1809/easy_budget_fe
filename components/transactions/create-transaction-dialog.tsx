@@ -88,6 +88,7 @@ export function CreateTransactionDialog({
 
   // Fetch all books for the book selection dropdown
   const fetchBooks = React.useCallback(async () => {
+    if (currentBookId) return // Skip fetching books if the book is fixed
     setBooksLoading(true)
     try {
       const response: ApiResponse<Book[]> = await apiClient("/api/v1/books")
@@ -100,7 +101,7 @@ export function CreateTransactionDialog({
     } finally {
       setBooksLoading(false)
     }
-  }, [])
+  }, [currentBookId])
 
   // Fetch categories for the currently selected book
   const fetchCategories = React.useCallback(async (bookId: string) => {
@@ -270,32 +271,34 @@ export function CreateTransactionDialog({
             </Field>
           </div>
 
-          <Field>
-            <FieldLabel htmlFor="bookId">Parent Book</FieldLabel>
-            <Controller
-              name="bookId"
-              control={form.control}
-              render={({ field }) => (
-                <Select
-                  onValueChange={field.onChange}
-                  value={field.value}
-                  disabled={booksLoading}
-                >
-                  <SelectTrigger id="bookId" className="w-full">
-                    <SelectValue placeholder={booksLoading ? "Loading books..." : "Select Book"} />
-                  </SelectTrigger>
-                  <SelectContent position="popper">
-                    {books.map((b) => (
-                      <SelectItem key={b.id} value={b.id}>
-                        {b.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
-            <FieldError errors={[form.formState.errors.bookId]} />
-          </Field>
+          {!currentBookId && (
+            <Field>
+              <FieldLabel htmlFor="bookId">Parent Book</FieldLabel>
+              <Controller
+                name="bookId"
+                control={form.control}
+                render={({ field }) => (
+                  <Select
+                    onValueChange={field.onChange}
+                    value={field.value}
+                    disabled={booksLoading}
+                  >
+                    <SelectTrigger id="bookId" className="w-full">
+                      <SelectValue placeholder={booksLoading ? "Loading books..." : "Select Book"} />
+                    </SelectTrigger>
+                    <SelectContent position="popper">
+                      {books.map((b) => (
+                        <SelectItem key={b.id} value={b.id}>
+                          {b.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              <FieldError errors={[form.formState.errors.bookId]} />
+            </Field>
+          )}
 
           <Field>
             <FieldLabel htmlFor="categoryId">Category (Optional)</FieldLabel>
