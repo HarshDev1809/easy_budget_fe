@@ -86,6 +86,7 @@ export function EditTransactionDialog({
     },
   })
 
+  // eslint-disable-next-line react-hooks/incompatible-library
   const selectedBookId = form.watch("bookId")
 
   // Fetch all books for selection dropdown

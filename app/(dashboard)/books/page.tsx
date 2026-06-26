@@ -28,6 +28,7 @@ export default function BooksPage() {
       if (showLoading) {
         setLoading(true)
       }
+      setError(null)
       const response: ApiResponse<Book[]> = await apiClient("/api/v1/books")
       if (response.success) {
         setBooks(response.data)
