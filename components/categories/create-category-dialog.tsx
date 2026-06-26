@@ -380,6 +380,7 @@ export function CreateCategoryDialog({ bookId, onSuccess }: CreateCategoryDialog
                   <FieldLabel>Days of the Week</FieldLabel>
                   <div className="grid grid-cols-2 gap-2 pt-1">
                     {["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map((day, index) => {
+                      // eslint-disable-next-line react-hooks/incompatible-library
                       const currentSelected = form.watch("customDaysOfWeek") || [];
                       const isChecked = currentSelected.includes(index);
                       return (

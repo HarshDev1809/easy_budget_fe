@@ -3,7 +3,6 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import BooksPage from "./page";
 import { apiClient } from "@/lib/api-client";
-import { toast } from "sonner";
 
 // Mock dependencies
 vi.mock("@/lib/api-client", () => ({
@@ -89,7 +88,7 @@ describe("BooksPage", () => {
       message: "Server database is down",
     });
 
-    const { container } = render(<BooksPage />);
+    render(<BooksPage />);
 
     await waitFor(() => {
       expect(screen.getByText("Server database is down")).toBeInTheDocument();

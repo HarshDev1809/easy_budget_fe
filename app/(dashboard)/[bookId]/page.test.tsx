@@ -37,13 +37,16 @@ vi.mock("@/components/books/edit-book-dialog", () => ({
 // Mock Dialog primitive to render inline without Radix portal/focus trap in test environment
 vi.mock("@/components/ui/dialog", () => {
   return {
-    Dialog: ({ children, open }: any) => (open ? <div data-testid="mock-dialog">{children}</div> : null),
-    DialogContent: ({ children }: any) => <div data-testid="mock-dialog-content">{children}</div>,
-    DialogHeader: ({ children }: any) => <div>{children}</div>,
-    DialogFooter: ({ children }: any) => <div>{children}</div>,
-    DialogTitle: ({ children }: any) => <h2>{children}</h2>,
-    DialogDescription: ({ children }: any) => <p>{children}</p>,
-    DialogTrigger: ({ children }: any) => <>{children}</>,
+    Dialog: ({ children, open }: { children: React.ReactNode; open?: boolean }) =>
+      open ? <div data-testid="mock-dialog">{children}</div> : null,
+    DialogContent: ({ children }: { children: React.ReactNode }) => (
+      <div data-testid="mock-dialog-content">{children}</div>
+    ),
+    DialogHeader: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+    DialogFooter: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+    DialogTitle: ({ children }: { children: React.ReactNode }) => <h2>{children}</h2>,
+    DialogDescription: ({ children }: { children: React.ReactNode }) => <p>{children}</p>,
+    DialogTrigger: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   };
 });
 

@@ -15,10 +15,10 @@ describe("apiClient", () => {
 
   it("sends fetch request with default options and content-type header", async () => {
     const mockResponseData = { success: true, data: "test" };
-    (global.fetch as any).mockResolvedValueOnce({
+    vi.mocked(global.fetch).mockResolvedValueOnce({
       ok: true,
       json: async () => mockResponseData,
-    });
+    } as unknown as Response);
 
     const result = await apiClient("/api/v1/test-endpoint", {
       method: "POST",
@@ -40,10 +40,10 @@ describe("apiClient", () => {
   });
 
   it("prefers custom headers and options over defaults", async () => {
-    (global.fetch as any).mockResolvedValueOnce({
+    vi.mocked(global.fetch).mockResolvedValueOnce({
       ok: true,
       json: async () => ({}),
-    });
+    } as unknown as Response);
 
     await apiClient("/api/v1/test", {
       headers: {
@@ -65,23 +65,23 @@ describe("apiClient", () => {
 
   it("throws error with message from JSON error response if response is not ok", async () => {
     const mockErrorResponse = { message: "Unauthorized access" };
-    (global.fetch as any).mockResolvedValueOnce({
+    vi.mocked(global.fetch).mockResolvedValueOnce({
       ok: false,
       status: 401,
       json: async () => mockErrorResponse,
-    });
+    } as unknown as Response);
 
     await expect(apiClient("/api/v1/secure")).rejects.toThrow("Unauthorized access");
   });
 
   it("throws error with generic HTTP message if JSON parsing fails", async () => {
-    (global.fetch as any).mockResolvedValueOnce({
+    vi.mocked(global.fetch).mockResolvedValueOnce({
       ok: false,
       status: 500,
       json: async () => {
         throw new Error("parsing failed");
       },
-    });
+    } as unknown as Response);
 
     await expect(apiClient("/api/v1/broken")).rejects.toThrow("HTTP error! status: 500");
   });
