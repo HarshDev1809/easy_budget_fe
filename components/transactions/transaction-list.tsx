@@ -496,6 +496,7 @@ export function TransactionList({
                           </Button>
                         </div>
                       </div>
+                    </Card>
                   )
                 })}
               </div>

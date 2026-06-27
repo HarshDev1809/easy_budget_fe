@@ -331,7 +331,7 @@ export default function BookDetailPage() {
             )}
           </CardContent>
         </Card>
-      )}  )}
+      )}
 
       {/* Category Deletion Confirmation Dialog */}
       <Dialog open={!!categoryToDelete} onOpenChange={(open) => !open && setCategoryToDelete(null)}>
