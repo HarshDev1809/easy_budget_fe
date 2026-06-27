@@ -496,11 +496,11 @@ export function TransactionList({
                           </Button>
                         </div>
                       </div>
-                    </Card>
                   )
                 })}
               </div>
             </div>
+          )}
 
           {/* Load More Button */}
           {nextCursor && !loading && (

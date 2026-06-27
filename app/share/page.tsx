@@ -16,9 +16,7 @@ import {
   Search, 
   Download, 
   TrendingUp, 
-  TrendingDown, 
-  DollarSign,
-  TrendingDown as NetIcon
+  TrendingDown
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -73,6 +71,7 @@ function SharePageContent() {
   // Auto-decrypt if it's public
   React.useEffect(() => {
     if (!token) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setError("Invalid sharing link. No token found.")
       return
     }
@@ -82,7 +81,8 @@ function SharePageContent() {
         const decoded = decodePublicPayload(token)
         const parsed = JSON.parse(decoded) as SharedReportPayload
         setUnlockedPayload(parsed)
-      } catch (err) {
+      } catch {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setError("Failed to decode the sharing payload. The link might be broken.")
       }
     }
@@ -102,7 +102,7 @@ function SharePageContent() {
       const parsed = JSON.parse(decrypted) as SharedReportPayload
       setUnlockedPayload(parsed)
       toast.success("Report unlocked successfully!")
-    } catch (err) {
+    } catch {
       toast.error("Incorrect passcode. Please try again.")
     } finally {
       setUnlocking(false)
@@ -322,7 +322,7 @@ function SharePageContent() {
             <div className="sm:w-48">
               <select
                 value={selectedType}
-                onChange={(e) => setSelectedType(e.target.value as any)}
+                onChange={(e) => setSelectedType(e.target.value as "all" | "credit" | "debit")}
                 className="w-full h-9 rounded-md border border-input px-3 py-1 bg-background text-sm shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
                 <option value="all">All Types</option>

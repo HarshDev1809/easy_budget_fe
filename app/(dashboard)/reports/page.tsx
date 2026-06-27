@@ -22,8 +22,6 @@ import {
   Check, 
   Lock, 
   Unlock, 
-  Calendar, 
-  Tag, 
   ArrowDownLeft, 
   ArrowUpRight 
 } from "lucide-react"
@@ -63,7 +61,7 @@ export default function ReportsPage() {
             setSelectedBookId(response.data[0].id)
           }
         }
-      } catch (err) {
+      } catch {
         toast.error("Failed to load books")
       } finally {
         setLoading(false)
@@ -91,7 +89,7 @@ export default function ReportsPage() {
         if (txRes.success) {
           setTransactions(txRes.data)
         }
-      } catch (err) {
+      } catch {
         toast.error("Failed to load details for the selected book")
       }
     }
@@ -267,7 +265,7 @@ export default function ReportsPage() {
               {/* Select Type */}
               <div className="space-y-1.5">
                 <Label htmlFor="type-select">Transaction Type</Label>
-                <Select value={selectedType} onValueChange={(val: any) => setSelectedType(val)}>
+                <Select value={selectedType} onValueChange={(val) => setSelectedType(val as "all" | "credit" | "debit")}>
                   <SelectTrigger id="type-select">
                     <SelectValue placeholder="All" />
                   </SelectTrigger>
