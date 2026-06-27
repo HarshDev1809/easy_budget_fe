@@ -82,7 +82,6 @@ function SharePageContent() {
         const parsed = JSON.parse(decoded) as SharedReportPayload
         setUnlockedPayload(parsed)
       } catch {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setError("Failed to decode the sharing payload. The link might be broken.")
       }
     }
