@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { apiClient } from "@/lib/api-client"
-import { Trash2, Loader2, KeyRound, ListTodo } from "lucide-react"
+import { Trash2, Loader2, KeyRound, ListTodo, RefreshCw } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -238,9 +238,8 @@ export default function BookDetailPage() {
       )}
 
       {activeTab === "categories" && (
-
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+          <CardHeader className="pb-3 flex flex-row items-center justify-between gap-2">
             <div className="space-y-1">
               <CardTitle className="flex items-center gap-2">
                 <ListTodo className="h-5 w-5" />
@@ -250,7 +249,18 @@ export default function BookDetailPage() {
                 Manage budget categories for this book.
               </CardDescription>
             </div>
-            <CreateCategoryDialog bookId={bookId} onSuccess={fetchCategories} />
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => fetchCategories(true)}
+                disabled={categoriesLoading}
+                title="Refresh categories"
+              >
+                <RefreshCw className={`h-4 w-4 ${categoriesLoading ? "animate-spin" : ""}`} />
+              </Button>
+              <CreateCategoryDialog bookId={bookId} onSuccess={fetchCategories} />
+            </div>
           </CardHeader>
           <CardContent>
             {categoriesLoading ? (
@@ -262,53 +272,66 @@ export default function BookDetailPage() {
                 <p className="text-muted-foreground text-sm">No categories yet. Create one to get started.</p>
               </div>
             ) : (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {categories.map((category) => (
-                  <Card key={category.id} className="relative group overflow-hidden">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-base truncate">{category.name}</CardTitle>
-                      <CardDescription className="flex flex-col gap-1.5 pt-1 text-xs">
-                        <div className="flex items-center justify-between">
-                          <span className="font-semibold text-foreground">Base: ₹{category.baseAmount}</span>
-                          {category.carryForward && (
-                            <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full uppercase font-bold tracking-wider">
-                              Carry
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse text-left text-sm min-w-[600px]">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="py-3 px-4 font-semibold text-muted-foreground">Category Name</th>
+                      <th className="py-3 px-4 font-semibold text-muted-foreground">Base Amount</th>
+                      <th className="py-3 px-4 font-semibold text-muted-foreground">Balance</th>
+                      <th className="py-3 px-4 font-semibold text-muted-foreground">Carry Forward</th>
+                      <th className="py-3 px-4 font-semibold text-muted-foreground">Renewal Cycle</th>
+                      <th className="py-3 px-4 font-semibold text-muted-foreground">Next Reset</th>
+                      <th className="py-3 px-4 font-semibold text-muted-foreground text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {categories.map((category) => (
+                      <tr key={category.id} className="hover:bg-muted/30 transition-colors">
+                        <td className="py-3 px-4 font-medium">{category.name}</td>
+                        <td className="py-3 px-4">₹{category.baseAmount}</td>
+                        <td className="py-3 px-4 font-semibold text-primary">
+                          {category.balance !== undefined ? `₹${category.balance}` : "-"}
+                        </td>
+                        <td className="py-3 px-4">
+                          {category.carryForward ? (
+                            <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full uppercase font-bold tracking-wider">
+                              Yes
+                            </span>
+                          ) : (
+                            <span className="text-[10px] bg-muted text-muted-foreground px-2 py-0.5 rounded-full uppercase font-bold tracking-wider">
+                              No
                             </span>
                           )}
-                        </div>
-                        {category.balance !== undefined && (
-                          <div className="font-bold text-primary text-xs mt-1">
-                            Balance: ₹{category.balance}
+                        </td>
+                        <td className="py-3 px-4 text-muted-foreground">{formatCategoryRenewCycle(category)}</td>
+                        <td className="py-3 px-4 text-muted-foreground">
+                          {category.nextRenewAt ? formatCategoryNextReset(category.nextRenewAt) : "-"}
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <div className="flex justify-end gap-1.5">
+                            <EditCategoryDialog category={category} onSuccess={fetchCategories} />
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                              onClick={() => setCategoryToDelete(category)}
+                              disabled={deletingCategoryId === category.id}
+                              title="Delete category"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
                           </div>
-                        )}
-                        <div className="text-muted-foreground space-y-0.5 pt-1">
-
-                          <p>{formatCategoryRenewCycle(category)}</p>
-                          {category.nextRenewAt && (
-                            <p>{formatCategoryNextReset(category.nextRenewAt)}</p>
-                          )}
-                        </div>
-                      </CardDescription>
-                    </CardHeader>
-                    <div className="absolute top-2 right-2 flex gap-1 sm:opacity-0 group-hover:opacity-100 transition-opacity">
-                      <EditCategoryDialog category={category} onSuccess={fetchCategories} />
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                        onClick={() => setCategoryToDelete(category)}
-                        disabled={deletingCategoryId === category.id}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </Card>
-                ))}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </CardContent>
         </Card>
-      )}
+      )}  )}
 
       {/* Category Deletion Confirmation Dialog */}
       <Dialog open={!!categoryToDelete} onOpenChange={(open) => !open && setCategoryToDelete(null)}>
