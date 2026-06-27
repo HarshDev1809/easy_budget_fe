@@ -137,6 +137,18 @@ export function TransactionList({
     fetchTransactions(null, true)
   }, [fetchTransactions])
 
+  // Listen for global transaction creation (e.g. from FAB) to refresh the list
+  React.useEffect(() => {
+    const handleGlobalTransactionCreated = () => {
+      fetchTransactions(null, true)
+      onMutation?.()
+    }
+    window.addEventListener("transaction-created", handleGlobalTransactionCreated)
+    return () => {
+      window.removeEventListener("transaction-created", handleGlobalTransactionCreated)
+    }
+  }, [fetchTransactions, onMutation])
+
   // Trigger refetch of page 1 and parent stats
   const handleMutation = () => {
     fetchTransactions(null, true)
