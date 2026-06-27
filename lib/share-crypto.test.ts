@@ -14,7 +14,7 @@ beforeAll(() => {
   if (!globalThis.crypto) {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const nodeCrypto = require("crypto");
-    // @ts-ignore
+    // @ts-expect-error - webcrypto type assignment mismatch
     globalThis.crypto = nodeCrypto.webcrypto;
   }
 });
