@@ -15,6 +15,19 @@ export default function DashboardLayout({
 }) {
   const [isCollapsed, setIsCollapsed] = React.useState(false)
 
+  React.useEffect(() => {
+    const saved = localStorage.getItem("sidebar-collapsed")
+    if (saved !== null) {
+      setIsCollapsed(saved === "true")
+    }
+  }, [])
+
+  const toggleSidebar = () => {
+    const next = !isCollapsed
+    setIsCollapsed(next)
+    localStorage.setItem("sidebar-collapsed", String(next))
+  }
+
   return (
     <div className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -51,9 +64,12 @@ export default function DashboardLayout({
           <div className="p-4 border-t mt-auto flex justify-center">
             <Button
               variant="ghost"
-              size="icon"
-              className="w-full flex items-center justify-center gap-2"
-              onClick={() => setIsCollapsed(!isCollapsed)}
+              size={isCollapsed ? "icon" : "default"}
+              className={cn(
+                "flex items-center justify-center gap-2 transition-all",
+                isCollapsed ? "w-9 h-9" : "w-full px-3"
+              )}
+              onClick={toggleSidebar}
               title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
             >
               {isCollapsed ? (
