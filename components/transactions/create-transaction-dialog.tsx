@@ -58,11 +58,13 @@ type FormValues = z.infer<typeof formSchema>
 interface CreateTransactionDialogProps {
   currentBookId?: string
   onSuccess?: () => void
+  trigger?: React.ReactNode
 }
 
 export function CreateTransactionDialog({
   currentBookId,
   onSuccess,
+  trigger,
 }: CreateTransactionDialogProps) {
   const [open, setOpen] = React.useState(false)
   const [isSubmitting, setIsSubmitting] = React.useState(false)
@@ -179,6 +181,9 @@ export function CreateTransactionDialog({
       toast.success("Transaction created successfully")
       setOpen(false)
       onSuccess?.()
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("transaction-created", { detail: payload }))
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to create transaction")
     } finally {
@@ -189,10 +194,12 @@ export function CreateTransactionDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm">
-          <Plus className="h-4 w-4 mr-2" />
-          Add Transaction
-        </Button>
+        {trigger || (
+          <Button size="sm">
+            <Plus className="h-4 w-4 mr-2" />
+            Add Transaction
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>

@@ -9,6 +9,7 @@ import { toast } from "sonner"
 import * as z from "zod"
 import { Eye, EyeOff } from "lucide-react"
 import { apiClient } from "@/lib/api-client"
+import { cn } from "@/lib/utils"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -73,8 +74,11 @@ export default function SignupPage() {
   const {
     control,
     handleSubmit,
+    watch,
     formState: { isSubmitting },
   } = form
+
+  const passwordValue = watch("password") || ""
 
   async function onSubmit(data: SignupFormValues) {
     try {
@@ -182,6 +186,35 @@ export default function SignupPage() {
                         </InputGroupButton>
                       </InputGroupAddon>
                     </InputGroup>
+                    
+                    {/* Dynamic Password Complexity Indicators */}
+                    <div className="mt-2 grid grid-cols-2 gap-2 text-xs" data-testid="password-constraints">
+                      <div className="flex items-center gap-1.5">
+                        <span className={cn("h-1.5 w-1.5 rounded-full transition-colors", passwordValue.length >= 8 ? "bg-green-500" : "bg-muted-foreground/30")} />
+                        <span className={passwordValue.length >= 8 ? "text-green-600 dark:text-green-400 font-medium" : "text-muted-foreground"}>
+                          At least 8 characters
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className={cn("h-1.5 w-1.5 rounded-full transition-colors", /[A-Z]/.test(passwordValue) ? "bg-green-500" : "bg-muted-foreground/30")} />
+                        <span className={/[A-Z]/.test(passwordValue) ? "text-green-600 dark:text-green-400 font-medium" : "text-muted-foreground"}>
+                          At least 1 uppercase letter
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className={cn("h-1.5 w-1.5 rounded-full transition-colors", /[0-9]/.test(passwordValue) ? "bg-green-500" : "bg-muted-foreground/30")} />
+                        <span className={/[0-9]/.test(passwordValue) ? "text-green-600 dark:text-green-400 font-medium" : "text-muted-foreground"}>
+                          At least 1 number
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className={cn("h-1.5 w-1.5 rounded-full transition-colors", /[^A-Za-z0-9]/.test(passwordValue) ? "bg-green-500" : "bg-muted-foreground/30")} />
+                        <span className={/[^A-Za-z0-9]/.test(passwordValue) ? "text-green-600 dark:text-green-400 font-medium" : "text-muted-foreground"}>
+                          At least 1 special character
+                        </span>
+                      </div>
+                    </div>
+
                     {fieldState.invalid && (
                       <FieldError errors={[fieldState.error]} />
                     )}

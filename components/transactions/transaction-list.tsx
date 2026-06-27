@@ -137,6 +137,18 @@ export function TransactionList({
     fetchTransactions(null, true)
   }, [fetchTransactions])
 
+  // Listen for global transaction creation (e.g. from FAB) to refresh the list
+  React.useEffect(() => {
+    const handleGlobalTransactionCreated = () => {
+      fetchTransactions(null, true)
+      onMutation?.()
+    }
+    window.addEventListener("transaction-created", handleGlobalTransactionCreated)
+    return () => {
+      window.removeEventListener("transaction-created", handleGlobalTransactionCreated)
+    }
+  }, [fetchTransactions, onMutation])
+
   // Trigger refetch of page 1 and parent stats
   const handleMutation = () => {
     fetchTransactions(null, true)
@@ -185,29 +197,15 @@ export function TransactionList({
       {/* Search, Filter & Sort Controls */}
       <Card>
         <CardContent className="p-4 space-y-4">
-          {/* Top Row: Search and Action Buttons */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by name, category or amount..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 w-full"
-              />
-            </div>
-            <div className="flex items-center gap-2 justify-end">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={handleMutation}
-                disabled={loading}
-                title="Refresh ledger"
-              >
-                <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-              </Button>
-              <CreateTransactionDialog currentBookId={bookId} onSuccess={handleMutation} />
-            </div>
+          {/* Top Row: Search */}
+          <div className="relative">
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by name, category or amount..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 w-full"
+            />
           </div>
 
           {/* Bottom Row: Filters and Sort options */}
@@ -290,12 +288,24 @@ export function TransactionList({
 
       {/* Transaction Ledger Table */}
       <Card>
-        <CardHeader className="pb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+        <CardHeader className="pb-3 flex flex-row items-center justify-between gap-2">
           <div>
             <CardTitle>Transaction Ledger</CardTitle>
             <CardDescription>
               A record of income and expenses associated with your book.
             </CardDescription>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handleMutation}
+              disabled={loading}
+              title="Refresh ledger"
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            </Button>
+            <CreateTransactionDialog currentBookId={bookId} onSuccess={handleMutation} />
           </div>
         </CardHeader>
         <CardContent className="px-0 sm:px-6">
@@ -323,92 +333,173 @@ export function TransactionList({
               </p>
             </div>
           ) : (
-            <div className="divide-y divide-border border-t">
-              {transactions.map((txn) => {
-                const isCredit = txn.type === "credit"
-                // Prefer API returned categoryName, fallback to looking it up locally
-                const catName = txn.categoryName || (
-                  txn.categoryId ? categories.find(c => String(c.id) === String(txn.categoryId))?.name : null
-                )
-                
-                return (
-                  <div
-                    key={txn.id}
-                    className="flex items-center justify-between p-4 hover:bg-muted/30 transition-colors"
-                  >
-                    <div className="flex items-center gap-3 min-w-0 pr-4">
-                      {/* Circle Badge Indicator */}
-                      <div
-                        className={`h-9 w-9 rounded-full flex items-center justify-center shrink-0 ${
-                          isCredit
-                            ? "bg-green-500/10 text-green-600 dark:text-green-400"
-                            : "bg-destructive/10 text-destructive"
-                        }`}
-                      >
-                        {isCredit ? (
-                          <ArrowDownLeft className="h-5 w-5" />
-                        ) : (
-                          <ArrowUpRight className="h-5 w-5" />
-                        )}
+            <div>
+              {/* Desktop View: row list layout */}
+              <div className="hidden sm:block divide-y divide-border border-t">
+                {transactions.map((txn) => {
+                  const isCredit = txn.type === "credit"
+                  const catName = txn.categoryName || (
+                    txn.categoryId ? categories.find(c => String(c.id) === String(txn.categoryId))?.name : null
+                  )
+                  
+                  return (
+                    <div
+                      key={txn.id}
+                      className="flex items-center justify-between p-4 hover:bg-muted/30 transition-colors"
+                    >
+                      <div className="flex items-center gap-3 min-w-0 pr-4">
+                        {/* Circle Badge Indicator */}
+                        <div
+                          className={`h-9 w-9 rounded-full flex items-center justify-center shrink-0 ${
+                            isCredit
+                              ? "bg-green-500/10 text-green-600 dark:text-green-400"
+                              : "bg-destructive/10 text-destructive"
+                          }`}
+                        >
+                          {isCredit ? (
+                            <ArrowDownLeft className="h-5 w-5" />
+                          ) : (
+                            <ArrowUpRight className="h-5 w-5" />
+                          )}
+                        </div>
+
+                        {/* Transaction Details */}
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-foreground truncate max-w-[200px] sm:max-w-md">
+                            {txn.name}
+                          </p>
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground mt-0.5">
+                            <span className="flex items-center gap-1" title={`Created at: ${formatTxnDate(txn.createdAt)}`}>
+                              <Calendar className="h-3 w-3" />
+                              Paid: {formatTxnDate(txn.paidAt)}
+                            </span>
+                            {catName && (
+                              <>
+                                <span className="hidden sm:inline">•</span>
+                                <span className="inline-flex items-center gap-1 bg-primary/10 text-primary px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider">
+                                  <Tag className="h-2.5 w-2.5" />
+                                  {catName}
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        </div>
                       </div>
 
-                      {/* Transaction Details */}
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-foreground truncate max-w-[200px] sm:max-w-md">
-                          {txn.name}
-                        </p>
-                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground mt-0.5">
-                          <span className="flex items-center gap-1" title={`Created at: ${formatTxnDate(txn.createdAt)}`}>
-                            <Calendar className="h-3 w-3" />
-                            Paid: {formatTxnDate(txn.paidAt)}
-                          </span>
-                          {catName && (
-                            <>
-                              <span className="hidden sm:inline">•</span>
-                              <span className="inline-flex items-center gap-1 bg-primary/10 text-primary px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider">
-                                <Tag className="h-2.5 w-2.5" />
-                                {catName}
-                              </span>
-                            </>
-                          )}
+                      {/* Amount & Actions */}
+                      <div className="flex items-center gap-4 shrink-0">
+                        <div className="text-right">
+                          <p
+                            className={`text-sm font-bold ${
+                              isCredit
+                                ? "text-green-600 dark:text-green-400"
+                                : "text-foreground"
+                            }`}
+                          >
+                            {isCredit ? "+" : "-"}{formatAmount(txn.amount)}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground uppercase font-semibold">
+                            {txn.type}
+                          </p>
+                        </div>
+
+                        {/* Actions (Edit / Delete) */}
+                        <div className="flex items-center gap-1">
+                          <EditTransactionDialog transaction={txn} currentBookId={bookId} onSuccess={handleMutation} />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => setTransactionToDelete(txn)}
+                            title="Delete transaction"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
                       </div>
                     </div>
+                  )
+                })}
+              </div>
 
-                    {/* Amount & Actions */}
-                    <div className="flex items-center gap-4 shrink-0">
-                      <div className="text-right">
-                        <p
-                          className={`text-sm font-bold ${
-                            isCredit
-                              ? "text-green-600 dark:text-green-400"
-                              : "text-foreground"
-                          }`}
-                        >
-                          {isCredit ? "+" : "-"}{formatAmount(txn.amount)}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground uppercase font-semibold">
-                          {txn.type}
-                        </p>
+              {/* Mobile View: card grid layout */}
+              <div className="block sm:hidden space-y-3 p-4 border-t">
+                {transactions.map((txn) => {
+                  const isCredit = txn.type === "credit"
+                  const catName = txn.categoryName || (
+                    txn.categoryId ? categories.find(c => String(c.id) === String(txn.categoryId))?.name : null
+                  )
+                  
+                  return (
+                    <Card key={txn.id} className="p-4 flex flex-col gap-3 relative shadow-sm border border-border">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          {/* Circle Badge Indicator */}
+                          <div
+                            className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 ${
+                              isCredit
+                                ? "bg-green-500/10 text-green-600 dark:text-green-400"
+                                : "bg-destructive/10 text-destructive"
+                            }`}
+                          >
+                            {isCredit ? (
+                              <ArrowDownLeft className="h-4 w-4" />
+                            ) : (
+                              <ArrowUpRight className="h-4 w-4" />
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-foreground truncate max-w-[160px]">
+                              {txn.name}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground uppercase font-semibold">
+                              {txn.type}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p
+                            className={`text-sm font-bold ${
+                              isCredit
+                                ? "text-green-600 dark:text-green-400"
+                                : "text-foreground"
+                            }`}
+                          >
+                            {isCredit ? "+" : "-"}{formatAmount(txn.amount)}
+                          </p>
+                        </div>
                       </div>
-
-                      {/* Actions (Edit / Delete) */}
-                      <div className="flex items-center gap-1">
-                        <EditTransactionDialog transaction={txn} currentBookId={bookId} onSuccess={handleMutation} />
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                          onClick={() => setTransactionToDelete(txn)}
-                          title="Delete transaction"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                      
+                      <div className="flex items-center justify-between border-t pt-2 mt-1">
+                        <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-3.5 w-3.5" />
+                            {formatTxnDate(txn.paidAt)}
+                          </span>
+                          {catName && (
+                            <span className="inline-flex items-center gap-0.5 bg-primary/10 text-primary px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider">
+                              <Tag className="h-2.5 w-2.5" />
+                              {catName}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <EditTransactionDialog transaction={txn} currentBookId={bookId} onSuccess={handleMutation} />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => setTransactionToDelete(txn)}
+                            title="Delete transaction"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                )
-              })}
+                    </Card>
+                  )
+                })}
+              </div>
             </div>
           )}
 

@@ -126,8 +126,8 @@ describe("BookDetailPage", () => {
     fireEvent.click(categoriesTab);
 
     expect(screen.getByText("Food & Drinks")).toBeInTheDocument();
-    expect(screen.getByText("Base: ₹15000")).toBeInTheDocument();
-    expect(screen.getByText("Balance: ₹12000")).toBeInTheDocument();
+    expect(screen.getByText("₹15000")).toBeInTheDocument();
+    expect(screen.getByText("₹12000")).toBeInTheDocument();
     expect(screen.getByTestId("create-category-dialog")).toBeInTheDocument();
 
     // Query for category delete button specifically by locating the trash icon parent
